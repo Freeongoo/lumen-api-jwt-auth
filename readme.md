@@ -14,4 +14,28 @@ Simple way create API
 5. Insert data to DB
     - `php artisan db:seed` (insert users in database, see database/factories/ModelFactory.php)
 
-Documentation for the framework can be found on the [Lumen website](http://lumen.laravel.com/docs).
+## Getting Started
+
+### Private access
+
+We have private access to the list of users, you can check by typing in the browser:<br/>
+http://mydomain.loc/users<br/><br/>
+And you see fail message:<br/>
+`"error": "Token not provided."`
+
+### Authentication
+
+1. Select any user from database (email, password)
+2. Got to postman (https://www.getpostman.com/)
+3. Create POST request to url: https://mydomain.loc/auth/lohin with params:
+    - email 
+    - password 
+4. Return token, save it
+5. Create GET request to url: https://mydomain.loc/users with param:
+    - token (obtained with successful login)
+6. See result: list of users
+
+## Built With
+
+* [Lumen](https://lumen.laravel.com/)
+* [JWT](https://jwt.io/)
