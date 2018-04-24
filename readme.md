@@ -1,6 +1,6 @@
 # Example JWT authentication for Lumen API
 
-Simple way create API
+Simple way create API with authorization with JWT
 
 ## Installation
 
@@ -26,7 +26,7 @@ And you see fail message:<br/>
 ### Authentication
 
 1. Select any user from database (email, password)
-2. Got to postman (https://www.getpostman.com/)
+2. Go to postman (https://www.getpostman.com/)
 3. Create POST request to url: https://mydomain.loc/auth/lohin with params:
     - email 
     - password 
