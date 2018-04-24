@@ -10,6 +10,7 @@ Simple way create API
     - Set param "JWT_SECRET" with random string too (used for JWT, recommended 32 characters long)
     - Config database config (DB_HOST, DB_PORT, DB_DATABASE, DB_USERNAME, DB_PASSWORD)
 3. Run migration database: php artisan migrate
-4. 
+4. Insert data to DB
+    - php artisan db:seed (insert users in database, see database/factories/ModelFactory.php)
 
 Documentation for the framework can be found on the [Lumen website](http://lumen.laravel.com/docs).
