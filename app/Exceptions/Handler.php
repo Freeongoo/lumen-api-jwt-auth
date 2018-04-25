@@ -11,6 +11,8 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class Handler extends ExceptionHandler
 {
+    use ApiExceptionHandlerTrait;
+
     /**
      * A list of the exception types that should not be reported.
      *
@@ -43,8 +45,9 @@ class Handler extends ExceptionHandler
      * @param  \Exception  $e
      * @return \Illuminate\Http\Response
      */
-    public function render($request, Exception $e)
+    public function render($request, Exception $exception)
     {
-        return parent::render($request, $e);
+        return $this->getJsonResponseForException($request, $exception);
+        // return parent::render($request, $exception);
     }
 }

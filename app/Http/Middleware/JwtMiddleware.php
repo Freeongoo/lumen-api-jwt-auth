@@ -2,14 +2,16 @@
 
 namespace App\Http\Middleware;
 
+use App\Exceptions\ApiExceptionHandlerTrait;
 use App\Services\AuthToken\AuthToken;
 use Closure;
-use Exception;
 use App\User;
-use Firebase\JWT\ExpiredException;
+use Illuminate\Auth\Access\AuthorizationException;
 
 class JwtMiddleware
 {
+    use ApiExceptionHandlerTrait;
+
     /**
      * @var AuthToken
      */
@@ -22,24 +24,14 @@ class JwtMiddleware
 
     public function handle($request, Closure $next, $guard = null)
     {
-        $token = $request->get('token');
-
-        if(!$token) {
-            // Unauthorized response if token not there
-            return response()->json([
-                'error' => 'Token not provided.'
-            ], 401);
-        }
         try {
+            $token = $request->get('token');
+            if (!$token)
+                throw new AuthorizationException("Token not passed");
+
             $credentials = $this->authToken->decode($token);
-        } catch(ExpiredException $e) {
-            return response()->json([
-                'error' => 'Provided token is expired.'
-            ], 400);
-        } catch(Exception $e) {
-            return response()->json([
-                'error' => 'An error while decoding token.'
-            ], 400);
+        } catch (\Exception $e) {
+            return $this->handleException($e, 401);
         }
 
         $user = User::find($credentials->sub);

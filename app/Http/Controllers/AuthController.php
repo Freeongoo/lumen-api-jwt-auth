@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Services\AuthToken\AuthToken;
 use App\User;
+use Dotenv\Exception\InvalidPathException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\UnauthorizedException;
 use Laravel\Lumen\Routing\Controller as BaseController;
 
 class AuthController extends BaseController
@@ -44,25 +46,16 @@ class AuthController extends BaseController
         // Find the user by email
         $user = User::where('email', $this->request->input('email'))->first();
         if (!$user) {
-            // You wil probably have some sort of helpers or whatever
-            // to make sure that you have the same response format for
-            // differents kind of responses. But let's return the 
-            // below respose for now.
-            return response()->json([
-                'error' => 'Email does not exist.'
-            ], 400);
+            throw new InvalidPathException("Email does not exist", 404);
         }
 
         // Verify the password and generate the token
-        if (Hash::check($this->request->input('password'), $user->password)) {
-            return response()->json([
-                'token' => $authMechanism->generate($user)
-            ], 200);
+        if (!Hash::check($this->request->input('password'), $user->password)) {
+            throw new UnauthorizedException('Email or password is wrong', 401);
         }
 
-        // Bad Request response
         return response()->json([
-            'error' => 'Email or password is wrong.'
-        ], 400);
+            'token' => $authMechanism->generate($user)
+        ], 200);
     }
 }
