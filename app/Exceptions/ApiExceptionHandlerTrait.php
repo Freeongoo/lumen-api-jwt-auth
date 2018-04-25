@@ -3,20 +3,13 @@
 namespace App\Exceptions;
 
 use Exception;
-use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Http\Request;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
-use Illuminate\Validation\UnauthorizedException;
 use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
 
 trait ApiExceptionHandlerTrait
 {
-    /**
-     * @var \Exception
-     */
-    private $exception;
-
     /**
      * Creates a new JSON response based on exception type.
      *
@@ -26,28 +19,71 @@ trait ApiExceptionHandlerTrait
      */
     protected function getJsonResponseForException(Request $request, Exception $e)
     {
-        $this->exception = $e;
-
-        switch(true) {
-            case $e->getCode() == 404:
-            case $this->isModelNotFoundException($e):
-            case $this->getStatusExceptionIfExist($e) == 404:
-                $retval = $this->setResponse('Not found', 404);
+        switch (true) {
+            case $this->is403Exception($e):
+                $response = $this->jsonExceptionResponseWithDefaultMessage(403, $e, "Forbidden");
                 break;
-            case $this->isMethodNotAllowed($e):
-                $retval = $this->setResponse("Method not allowed", 404);
+            case $this->is404Exception($e):
+                $response = $this->jsonExceptionResponseWithDefaultMessage(404, $e, 'Not found');
                 break;
-            case $this->getStatusExceptionIfExist($e) == 403:
-                $retval = $this->setResponse("Forbidden", 403);
-                break;
-            case $this->isAuthException($e):
-                $retval = $this->setResponse("Unauthorized", 401);
+            case $this->isValidationException($e):
+                $response = $this->jsonExceptionResponse(400, $e, $this->getFirstErrorFromValidateException($e));
                 break;
             default:
-                $retval = $this->setResponse('Bad request', 400);
+                $response = $this->jsonExceptionResponseWithDefaultMessage(400, $e);
         }
 
-        return $retval;
+        return $response;
+    }
+
+    /**
+     * @param ValidationException $e
+     * @return mixed
+     */
+    private function getFirstErrorFromValidateException(ValidationException $e)
+    {
+        $listError = $e->errors();
+
+        return array_first(array_shift($listError));
+    }
+
+    /**
+     * @param Exception $e
+     * @return bool
+     */
+    private function isValidationException(\Exception $e)
+    {
+        return $e instanceof ValidationException;
+    }
+
+    /**
+     * @param Exception $e
+     * @return bool
+     */
+    private function is404Exception(\Exception $e) : bool
+    {
+        if ($e->getCode() == 404) return true;
+
+        if ($this->getStatusExceptionIfExist($e) == 404) return true;
+
+        if ($e instanceof ModelNotFoundException) return true;
+
+        if ($e instanceof MethodNotAllowedHttpException) return true;
+
+        return false;
+    }
+
+    /**
+     * @param Exception $e
+     * @return bool
+     */
+    private function is403Exception(\Exception $e) : bool
+    {
+        if ($e->getCode() == 403) return true;
+
+        if ($this->getStatusExceptionIfExist($e) == 403) return true;
+
+        return false;
     }
 
     /**
@@ -57,82 +93,57 @@ trait ApiExceptionHandlerTrait
     private function getStatusExceptionIfExist(\Exception $e) : ?int
     {
         if (!method_exists ($e, 'getStatusCode')) return null;
+
         return $e->getStatusCode();
     }
 
-    private function setResponse($message, $statusCode)
+    /**
+     * @param int $statusCode
+     * @param Exception $e
+     * @param string $defaultMessage
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function jsonExceptionResponseWithDefaultMessage(int $statusCode, \Exception $e, string $defaultMessage = 'Bad request')
     {
-        return $this->jsonResponse($message, $statusCode);
-    }
+        $errorMessage = $e->getMessage() ?? $defaultMessage;
 
-    public function handleException(\Exception $e, $statusCode)
-    {
-        return $this->jsonResponse($e->getMessage(), $statusCode, $e);
+        return $this->jsonExceptionResponse($statusCode, $e, $errorMessage);
     }
 
     /**
-     * Returns json response.
-     *
-     * @param $message
      * @param int $statusCode
-     * @param \Exception $e
+     * @param Exception $e
+     * @param string $errorMessage
      * @return \Illuminate\Http\JsonResponse
      */
-    protected function jsonResponse($message, $statusCode, \Exception $e = null)
+    public function jsonExceptionResponse(int $statusCode, \Exception $e, string $errorMessage)
     {
-        $exception = $e ?? $this->exception;
+        $errorInfo = $this->getErrorInfo($errorMessage, $statusCode, $e);
 
-        $errorMsg = empty($exception->getMessage()) ? $message : $exception->getMessage();
+        return response()->json(["error" => $errorInfo], $statusCode);
+    }
 
-        $result = [
-            'statusCode' => $statusCode,
-            'code' => $exception->getCode(),
-            'message' => $errorMsg,
-            'type' => get_class($exception),
+    /**
+     * @param $message
+     * @param $statusCode
+     * @param Exception $e
+     * @return array
+     */
+    protected function getErrorInfo($message, $statusCode, \Exception $e) : array
+    {
+        $errorInfo = [
+            'code' => $e->getCode(),
+            'statusCode' => $statusCode,    // duplicate http status code
+            'message' => $message,
+            'type' => get_class($e),
         ];
 
         if (env('APP_DEBUG')) {
             // TODO: add additions debug info if need
-            $result = array_merge($result, ['stackTrace' => $exception->getTraceAsString()]);
+            $errorInfo = array_merge($errorInfo, ['stackTrace' => $e->getTraceAsString()]);
         }
 
-        return response()->json(["error" => $result], $statusCode);
-    }
-
-    /**
-     * Determines if the given exception is an Eloquent model not found.
-     *
-     * @param Exception $e
-     * @return bool
-     */
-    protected function isModelNotFoundException(Exception $e)
-    {
-        return $e instanceof ModelNotFoundException;
-    }
-
-    /**
-     * Determines if the given exception is an Eloquent model not found.
-     *
-     * @param Exception $e
-     * @return bool
-     */
-    protected function isMethodNotAllowed(Exception $e)
-    {
-        return $e instanceof MethodNotAllowedHttpException;
-    }
-
-    /**
-     * Determines if the given exception is an Eloquent model not found.
-     *
-     * @param Exception $e
-     * @return bool
-     */
-    protected function isAuthException(Exception $e)
-    {
-        if ($e instanceof UnauthorizedException) return true;
-        if ($e instanceof AuthorizationException) return true;
-
-        return false;
+        return $errorInfo;
     }
 
 }

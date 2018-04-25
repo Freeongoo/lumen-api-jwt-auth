@@ -31,10 +31,10 @@ class JwtMiddleware
 
             $credentials = $this->authToken->decode($token);
         } catch (\Exception $e) {
-            return $this->handleException($e, 401);
+            return $this->jsonExceptionResponse(401, $e, $e->getMessage());
         }
 
-        $user = User::find($credentials->sub);
+        $user = User::findOrFail($credentials->sub);
 
         // Now let's put the user in the request class so that you can grab it from there
         $request->auth = $user;
