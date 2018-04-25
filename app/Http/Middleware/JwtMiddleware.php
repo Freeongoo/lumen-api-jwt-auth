@@ -2,14 +2,24 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\AuthToken\AuthToken;
 use Closure;
 use Exception;
 use App\User;
-use Firebase\JWT\JWT;
 use Firebase\JWT\ExpiredException;
 
 class JwtMiddleware
 {
+    /**
+     * @var AuthToken
+     */
+    private $authToken;
+
+    public function __construct(AuthToken $authToken)
+    {
+        $this->authToken = $authToken;
+    }
+
     public function handle($request, Closure $next, $guard = null)
     {
         $token = $request->get('token');
@@ -21,7 +31,7 @@ class JwtMiddleware
             ], 401);
         }
         try {
-            $credentials = JWT::decode($token, env('JWT_SECRET'), [env('JWT_ALGORITHM')]);
+            $credentials = $this->authToken->decode($token);
         } catch(ExpiredException $e) {
             return response()->json([
                 'error' => 'Provided token is expired.'
